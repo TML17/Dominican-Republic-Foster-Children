@@ -1,0 +1,291 @@
+---
+title: "Hypothesis Testing"
+author: "Maya, Brady, & Tommy"
+date: 'Spring 2023'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the required packages
+```{r message = FALSE, warning = FALSE}
+library(haven)
+library(tidyr)
+library(readr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(lattice)
+library(lme4)
+library(tidyverse)
+library(stringr)
+library(emmeans)
+```
+
+# Hypothesis Testing
+```{r}
+clean_data <- read_csv("~/Clean_Data_Fosterage.csv") # load the clean data
+
+# Hypothesis: Women that have given up a child (children) are more likely to give up their firstborn child than their other children.
+# glmer model and summary
+hypothesis_firstborn <- glmer(child_foster ~ first_born + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_firstborn)
+# Odds ratio 
+exp(fixef(hypothesis_firstborn)) 
+# This will create a table that shows how many first born and non-first borns are fostered vs. not fostered in the data. This is meant to serve as a sanity/double check (it does not take into account the random effect of mothers, so the odds ratio calculated from this table would not be correct, but should be relatively close)
+table_firstborn <- table(clean_data$first_born, clean_data$child_foster)
+names(dimnames(table_firstborn)) <- c("first_born", "child_foster") # make sure the labels for the table are clear 
+table_firstborn # view table 
+
+# Hypothesis: Wealth index impacts fosterage. 
+clean_data$wealth_index <- as.factor(clean_data$wealth_index)
+# glmer model and summary
+hypothesis_wealth <- glmer(child_foster ~ wealth_index + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_wealth)
+# Odds ratio 
+exp(fixef(hypothesis_wealth)) 
+
+# Hypothesis: Firstborn female children are more likely to be given up than their other children.
+clean_data <- mutate(clean_data, child_female = ifelse((clean_data$sex_child == 2), 1, 0)) # makes a variable that represents sex of the child in 0/1 - female=1 male=0
+clean_data$child_female <- as.factor(clean_data$child_female) # make sure the variable is treated as a factor
+# glmer model and summary
+hypothesis_firstborn_female <- glmer(child_foster ~ first_born + child_female + first_born*sex_child + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_firstborn_female)
+# calculating odds ratio 
+exp(fixef(hypothesis_firstborn_female)) 
+
+# Hypothesis: Of all the women that have given birth, those that live in an urban area are more likely to have given up a child to be raised by others than women living in rural areas.
+temp_data <- clean_data 
+temp_data <- subset(temp_data, type_dejure_residence==1 | type_dejure_residence==2)
+temp_data <- mutate(temp_data, urban = ifelse((temp_data$type_dejure_residence == 1), 1,0)) # makes a temporary dataset that includes if the resident lives in an urban area (1) or a rural area (0) 
+# glmer model and summary
+hypothesis_urban <- glmer(child_foster ~ urban + (1 | mother_id), data = temp_data, family = binomial)
+summary(hypothesis_urban)
+# calculating odds ratio 
+exp(fixef(hypothesis_urban)) 
+# graph using ggplot
+temp_data$urban <- as.factor(temp_data$urban)
+ggplot(temp_data, aes(x = child_foster, fill = urban)) + geom_bar()
+# This will create a table that shows how many urban and rural children are fostered vs. not fostered in the data. This is meant to serve as a sanity/double check (it does not take into account the random effect of mothers, so the odds ratio calculated from this table would not be correct, but should be relatively close)
+table_urban <- table(temp_data$urban, temp_data$child_foster)
+names(dimnames(table_urban)) <- c("urban", "child_foster") # make sure the labels for the table are clear 
+table_urban # view table 
+# create a preliminary graph to represent the counts from the tables 
+labs <- expression("not urban", "urban")
+ggplot(temp_data, aes(x = child_foster, fill = urban)) + geom_bar() + scale_fill_manual(labels=labs, values=c('tomato','cyan3')) + labs(y= "Count", x = "Child Fostered") 
+
+# Hypothesis: Of all the women who have given birth, and have worked in the last 12 months, women who said they worked all year are more likely to have given up a child than those who worked less than a year.
+# glmer model and summary
+clean_data <- mutate(clean_data, worked_allyear = ifelse((clean_data$employed_allyear == 1), 1,0))  # add a new variable where 1=worked all year, 0=women who worked less than a year 
+hypothesis_work <- glmer(child_foster ~ worked_allyear + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_work)
+# calculating odds ratio 
+exp(fixef(hypothesis_work)) 
+# create a preliminary graph to represent the counts of children who are fostered and not fostered by if the mother has worked in the last year or not 
+clean_data$worked_allyear <- as.factor(clean_data$worked_allyear)
+ggplot(clean_data, aes(x = child_foster, fill = worked_allyear)) + geom_bar() # note: N/A values
+
+# Hypothesis: Of all the women that have given birth, those that are younger are more likely to have given up a child to be raised by others
+# glmer model and summary
+hypothesis_motherage <- glmer(child_foster ~ current_age_respondent + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_motherage)
+# calculating odds ratio 
+exp(fixef(hypothesis_motherage)) 
+
+# Hypothesis: Of all the women who have given birth, those that have achieved a higher level of education are less likely to have given up a child than women who have a lower level of education.
+clean_data <- mutate(clean_data, no_education = ifelse((clean_data$edu_level_mother == 0), 1,0)) # 1==no education, 0==some level of education
+clean_data <- mutate(clean_data, higher = ifelse((clean_data$edu_level_mother == 3), 1,0)) # 1==higher, 0==not higher
+# glmer model and summary
+hypothesis_edu <- glmer(child_foster ~ higher + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_edu)
+# calculating odds ratio 
+exp(fixef(hypothesis_edu)) 
+# This will create a table that shows how many children with mothers that have higher education vs. mothers that do not are fostered vs. not fostered in the data. This is meant to serve as a sanity/double check (it does not take into account the random effect of mothers, so the odds ratio calculated from this table would not be correct, but should be relatively close)
+table_edu <- table(clean_data$higher, clean_data$child_foster) 
+names(dimnames(table_edu)) <- c("higher_education", "child_foster") # make sure the labels for the table are clear 
+table_edu # view table 
+# create a preliminary graph to represent the counts from the tables 
+clean_data$higher <- as.factor(clean_data$higher)
+labs <- expression("no higher education", "higher education")
+ggplot(clean_data, aes(x = child_foster, fill = higher)) + geom_bar() + scale_fill_manual(labels=labs, values=c('tomato','cyan3')) + labs(y= "Count", x = "Child Fostered") 
+
+# Hypothesis: Education levels will differ in child fosterage. 
+clean_data$edu_level_mother <- as.factor(clean_data$edu_level_mother)
+# glmer model and summary
+hypothesis_alledu <- glmer(child_foster ~ edu_level_mother + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_alledu)
+# calculating odds ratio 
+exp(fixef(hypothesis_alledu)) 
+
+# Hypothesis: Of all the women that have given birth, those that have had more sexual partners (in the last 12 months or in their lifetime) are more likely to have given up a child to someone else.
+#unable to model these because all data is missing 
+
+# Hypothesis: Of all the women who have given birth, those cannot read, or can only partially read, are currently going to school or university are more likely to have given up a child to others than women who can read.
+clean_data$literacy <- as.factor(clean_data$literacy)
+# glmer model and summary
+hypothesis_literacy <- glmer(child_foster ~ literacy + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_literacy)
+# calculating odds ratio 
+exp(fixef(hypothesis_literacy)) 
+
+# Hypothesis: Of all the women who have given birth and have spent one month or more outside the home, those that traveled internationally are more likely to have given up a child than women who did not travel internationally. 
+clean_data$traveled_12 <- as.factor(clean_data$traveled_12)
+# glmer model and summary
+hypothesis_travel <- glmer(child_foster ~ traveled_12 + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_travel)
+# calculating odds ratio 
+exp(fixef(hypothesis_travel)) 
+# This will create a table that shows how many children with mothers that have traveled in the last 12 months vs. mothers that have not are fostered vs. not fostered in the data. This is meant to serve as a sanity/double check (it does not take into account the random effect of mothers, so the odds ratio calculated from this table would not be correct, but should be relatively close)
+table_traveled <- table(clean_data$traveled_12, clean_data$child_foster)
+names(dimnames(table_traveled)) <- c("travel", "foster") # make sure the labels for the table are clear 
+table_traveled # view table 
+# create a preliminary graph to represent the counts from the tables 
+labs <- expression("have not traveled internationally", "have traveled internationally")
+ggplot(clean_data, aes(x = child_foster, fill = traveled_12)) + geom_bar() + scale_fill_manual(labels=labs, values=c('tomato','cyan3')) + labs(y= "Count", x = "Child Fostered") 
+
+# Hypothesis: Of all the women who have given birth, those who have lived with someone or never lived with someone are more likely to have given up a child than those that have been married.
+clean_data$owner_house <- as.factor(clean_data$owner_house)
+# glmer model and summary
+hypothesis_house <- glmer(child_foster ~ owner_house + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_house)
+# calculating odds ratio 
+exp(fixef(hypothesis_house))
+
+# Hypothesis: Women who have given birth, and are currently married, will be less likely to have given up a child than those who are living with a partner or are not in a union
+clean_data$marital_status <- as.factor(clean_data$marital_status)
+# glmer model and summary
+hypothesis_marital <- glmer(child_foster ~ marital_status + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_marital)
+#trying to calculate the odds ratio
+exp(fixef(hypothesis_marital))
+
+# Hypothesis: Of all the women who have given birth, those who have lived with a man (unstable relationship) are more likely to give up a child than women who say have been married (stable relationship)
+clean_data$union_status <- as.factor(clean_data$union_status)
+# glmer model and summary
+hypothesis_union_status <- glmer(child_foster ~ union_status + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_union_status)
+# calculating odds ratio 
+exp(fixef(hypothesis_union_status))
+
+# Hypothesis: Of all the women who have given birth, those who have lived with or been married more than once are more likely to have given up a child than women who have been married or been in a relationship once
+clean_data$non_union_status <- as.factor(clean_data$non_union_status)
+# glmer model and summary
+hypothesis_num_union <- glmer(child_foster ~ non_union_status + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_num_union)
+# calculating odds ratio 
+exp(fixef(hypothesis_num_union))
+
+# Hypothesis: Of all the women that had given birth, and said they were married or in a relationship, those whose husbands were not living in the same household at the time of the interview (instability) are more likely to have given up offspring than those whose husbands were living in the same household (stability)
+clean_data$husband_residing <- as.factor(clean_data$husband_residing)
+# glmer model and summary
+hypothesis_husband_residing <- glmer(child_foster ~ husband_residing + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_husband_residing)
+# calculating odds ratio 
+exp(fixef(hypothesis_husband_residing))
+
+# Hypothesis: Of all the women who have given birth, those that slept outside the home more times in the last 12 months are more likely to have given up a child than women who spent slept outside the home fewer times in the last 12 months.
+# glmer model and summary
+hypothesis_num_trips <- glmer(child_foster ~ num_trips + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_num_trips)
+# calculating odds ratio
+exp(fixef(hypothesis_num_trips))
+
+# Hypothesis: Of all the women who have given birth, those who said they worked in the last 12 months are more likely to have given up a foster child than those who did not work in the last 12 months.
+clean_data$worked_allyear <- as.factor(clean_data$worked_allyear)
+# glmer model and summary
+hypothesis_worked_allyear <- glmer(child_foster ~ worked_allyear + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_worked_allyear)
+# calculating odds ratio 
+exp(fixef(hypothesis_worked_allyear))
+
+# Hypothesis: Of all the women who have given birth, and that are married and live with a partner, and that have worked in the last 12 months, and that earned in cash and/or in kind, those who decide when to go visit their family or relatives by themselves are less likely to have given up a child.
+clean_data$travel_decision_maker <- as.factor(clean_data$travel_decision_maker)
+# glmer model and summary
+hypothesis_travel_decision_maker <- glmer(child_foster ~ travel_decision_maker + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_travel_decision_maker)
+# calculating odds ratio 
+exp(fixef(hypothesis_travel_decision_maker))
+
+# Hypothesis: Age of first sex
+# glmer model and summary
+hypothesis_firstsex = glmer(child_foster ~ age_first_sex + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_firstsex)
+# calculating odds ratio 
+exp(fixef(hypothesis_firstsex))
+
+# Hypothesis: Cohabitation age
+# glmer model and summary
+hypothesis_cohabitation_age = glmer(child_foster ~ age_cohabitation + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_cohabitation_age)
+# calculating odds ratio 
+exp(fixef(hypothesis_cohabitation_age))
+
+# Hypothesis: Stable Relationship
+# create binary variable from categorical variable. 1 = in stable relationship 0 = not
+clean_data = mutate(clean_data, stable_relationship = ifelse((clean_data$stable == 1), 1,0))
+# glmer model and summary
+hypothesis_stable= glmer(child_foster ~ stable_relationship + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_stable)
+# calculating odds ratio 
+exp(fixef(hypothesis_stable))
+
+# Hypothesis: Partner Age
+# glmer model and summary
+hypothesis_partner_age= glmer(child_foster ~ partners_age + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_partner_age)
+# calculating odds ratio 
+exp(fixef(hypothesis_partner_age))
+
+# Hypothesis: Mother Never School
+#create binary variable from categorical variable. 1 = never attended school 0 = attained some level of education
+clean_data = mutate(clean_data, no_school = ifelse((clean_data$edu_level_mother == 0), 1,0))
+# glmer model and summary
+hypothesis_mother_no_education= glmer(child_foster ~ no_school + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_mother_no_education)
+# calculating odds ratio 
+exp(fixef(hypothesis_mother_no_education))
+
+# Hypothesis: Child Birth Sex
+# glmer model and summary
+hypothesis_sex_child= glmer(child_foster ~ sex_child + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_sex_child)
+# calculating odds ratio 
+exp(fixef(hypothesis_sex_child))
+
+# Hypothesis: Currently Working
+# glmer model and summary
+hypothesis_currently_working= glmer(child_foster ~ currently_working + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_currently_working)
+# calculating odds ratio 
+exp(fixef(hypothesis_currently_working))
+
+# Hypothesis: Financial Decision Maker
+clean_data$financial_decision_maker <- as.factor(clean_data$financial_decision_maker)
+# glmer model and summary
+hypothesis_financial_decision_maker= glmer(child_foster ~ financial_decision_maker + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_financial_decision_maker)
+# calculating odds ratio 
+exp(fixef(hypothesis_financial_decision_maker))
+
+# Hypothesis: Partner Education
+clean_data$partners_education <- as.factor(clean_data$partners_education)
+# glmer model and summary
+hypothesis_partner_education= glmer(child_foster ~ partners_education + (1 | mother_id), data = clean_data, family = binomial)
+summary(hypothesis_partner_education)
+# calculating odds ratio 
+exp(fixef(hypothesis_partner_education))
+# Odds Ratio Plots
+clean_data$no_school <- as.factor(clean_data$no_school)
+labs <- expression("any education", "no education")
+ggplot(clean_data, aes(x = child_foster, fill = no_school)) + geom_bar() + scale_fill_manual(labels=labs, values=c('tomato','cyan3')) + labs(y= "Count", x = "Child Fostered")
+# This will create a table that shows how many children with mothers that have no school vs. mothers that have school background are fostered vs. not fostered in the data. This is meant to serve as a sanity/double check (it does not take into account the random effect of mothers, so the odds ratio calculated from this table would not be correct, but should be relatively close)
+table_2 <- table(clean_data$no_school, clean_data$child_foster)
+names(dimnames(table_2)) <- c("no_education", "child_foster")
+table_2
+# create a preliminary graph to represent the counts from the tables 
+clean_data$no_school <- as.factor(clean_data$no_school)
+labs <- expression("any education", "no education")
+ggplot(clean_data, aes(x = child_foster, fill = no_school)) + geom_bar() + scale_fill_manual(labels=labs, values=c('tomato','cyan3')) + labs(y= "Count", x = "Child Fostered")
+```

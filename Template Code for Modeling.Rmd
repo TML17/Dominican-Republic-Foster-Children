@@ -1,0 +1,38 @@
+---
+title: "Template Code for Model Building"
+author: ""
+date: 'Spring 2023'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the required packages
+```{r message = FALSE, warning = FALSE}
+library(haven)
+library(tidyr)
+library(readr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(lattice)
+library(lme4)
+library(tidyverse)
+library(stringr)
+library(emmeans)
+```
+
+# 
+```{r}
+clean_data <- read_csv("~/Clean_Data_Fosterage.csv") # load the clean data
+
+clean_data$edu_level_mother <- as.factor(clean_data$edu_level_mother)
+#create binary variable from categorical variable. 1==higher education, 0==not higher education
+clean_data <- mutate(clean_data, higher = ifelse((clean_data$edu_level_mother == 3), 1,0)) 
+# glmer model and summary
+template_model <- glmer(child_foster ~ non_union_status + traveled_12 + edu_level_mother + non_union_status*traveled_12 + (1 | mother_id), data = clean_data, family = binomial)
+summary(template_model)
+
+```

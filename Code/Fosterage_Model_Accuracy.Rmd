@@ -1,0 +1,292 @@
+---
+title: "Model Accuracy - Child Fosterage"
+author: "Maya, Brady, & Tommy"
+date: 'Spring 2023'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the required packages
+```{r message = FALSE, warning = FALSE}
+library(haven)
+library(tidyr)
+library(readr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(lattice)
+library(lme4)
+library(tidyverse)
+library(stringr)
+library(lmerTest)
+library(cAIC4)
+library(MuMIn)
+library(parallel)
+library(glmmLasso)
+library(cvms)
+library(emmeans)
+library(numDeriv)
+library(RCurl)
+library(reshape2)
+library(plyr)
+library(RColorBrewer)
+```
+
+# Load the cleaned data
+```{r}
+# Read in the data
+Training <- read_csv("Clean_Data_Training.csv")
+Training_NA <- na.omit(Training)
+
+Testing <- read_csv("Clean_Data_Testing.csv")
+Testing_NA <- na.omit(Testing)
+
+Training_NAs <- Training_NA
+Testing_NAs <- Testing_NA
+```
+
+# Accuracy Tables for Forward Selection Models (training and testing data)
+```{r}
+## no variables
+f_model_null <- glmer(child_foster ~ 1 + (1 | mother_id), data = Training_NA, family = binomial)
+# Accuracy table for training data
+pred_train_null <- ifelse(fitted.values(f_model_null) > .5, "foster", "not foster")
+table(Training_NA$child_foster, pred_train_null)
+# Accuracy table for testing data
+f_accuracy_null <- validate(Training_NA, test_data = Testing_NA, formulas = "child_foster ~ 1 + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+## 1 variable
+```{r}
+# Rescale for age_child
+Training_NAs[, 3] <- scale(Training_NAs[, 3])
+
+## 1 variable
+f_model_1 <- glmer(child_foster ~ age_child + (1 | mother_id), data = Training_NA, family = binomial)
+f_model_1_sc <- update(f_model_1, data=Training_NAs)
+
+# Accuracy table
+pred_train_1 <- ifelse(fitted.values(f_model_1_sc) > .5, "foster", "not foster")
+table(Training_NAs$child_foster, pred_train_1)
+
+# Accuracy table for testing data
+Testing_NAs[, 3] <- scale(Testing_NAs[, 3])
+
+f_accuracy_1 <- validate(Training_NAs, test_data = Testing_NAs, formulas = "child_foster ~ age_child + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+## 2 variables
+```{r}
+# Rescale for current_age_respondent
+Training_NAs[, 23] <- scale(Training_NAs[, 23])
+
+# 2 variables
+f_model_2 <- glmer(child_foster ~ age_child + current_age_respondent + (1 | mother_id), data = Training_NA, family = binomial)
+f_model_2_sc <- update(f_model_2, data=Training_NAs)
+
+# Accuracy table
+pred_train_2 <- ifelse(fitted.values(f_model_2_sc) > .5, "foster", "not foster")
+table(Training_NAs$child_foster, pred_train_2)
+
+# Accuracy table for testing data
+Testing_NAs[, 23] <- scale(Testing_NAs[, 23])
+
+f_accuracy_2 <- validate(Training_NAs, test_data = Testing_NAs, formulas = "child_foster ~ age_child + current_age_respondent + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+## 3 variables
+```{r}
+# Rescale for num_union_status
+Training_NAs[, 11] <- scale(Training_NAs[, 11])
+
+## 3 variables
+f_model_3 <- glmer(child_foster ~ age_child + current_age_respondent + num_union_status + (1 | mother_id), data = Training_NA, family = binomial)
+f_model_3_sc <- update(f_model_3, data=Training_NAs)
+
+# Accuracy table
+pred_train_3 <- ifelse(fitted.values(f_model_3_sc) > .5, "foster", "not foster")
+table(Training_NAs$child_foster, pred_train_3)
+
+# Accuracy table for testing data
+Testing_NAs[, 11] <- scale(Testing_NAs[, 11])
+
+f_accuracy_3 <- validate(Training_NAs, test_data = Testing_NAs, formulas = "child_foster ~ age_child + current_age_respondent + num_union_status + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+## 4 variables
+```{r}
+# Rescale for first_born
+Training_NAs[, 5] <- scale(Training_NAs[, 5])
+
+## 4 variables
+f_model_4 <- glmer(child_foster ~ age_child + current_age_respondent + num_union_status + first_born + (1 | mother_id), data = Training_NA, family = binomial)
+f_model_4_sc <- update(f_model_4, data=Training_NAs)
+
+# Accuracy table
+pred_train_4 <- ifelse(fitted.values(f_model_4_sc) > .5, "foster", "not foster")
+table(Training_NAs$child_foster, pred_train_4)
+
+# Accuracy table for testing data
+Testing_NAs[, 5] <- scale(Testing_NAs[, 5])
+
+f_accuracy_4 <- validate(Training_NAs, test_data = Testing_NAs, formulas = "child_foster ~ age_child + current_age_respondent + num_union_status + first_born + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+## 5 variables
+```{r}
+# Rescale for wealth_index
+Training_NAs[, 17] <- scale(Training_NAs[, 17])
+
+## 5 variables
+f_model_5 <- glmer(child_foster ~ age_child + current_age_respondent + num_union_status + first_born + wealth_index + (1 | mother_id), data = Training_NA, family = binomial)
+f_model_5_sc <- update(f_model_5, data=Training_NAs)
+
+# Accuracy table
+pred_train_5 <- ifelse(fitted.values(f_model_5_sc) > .5, "foster", "not foster")
+table(Training_NAs$child_foster, pred_train_5)
+
+# Accuracy table for testing data
+Testing_NAs[, 17] <- scale(Testing_NAs[, 17])
+
+f_accuracy_5 <- validate(Training_NAs, test_data = Testing_NAs, formulas = "child_foster ~ age_child + current_age_respondent + num_union_status + first_born + wealth_index + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+## 6 variables
+```{r}
+# Rescale for edu_level_mother
+Training_NAs[, 14] <- scale(Training_NAs[, 14])
+
+# 6 variables
+f_model_6 <- glmer(child_foster ~ age_child + current_age_respondent + num_union_status + first_born + wealth_index + edu_level_mother + (1 | mother_id), data = Training_NA, family = binomial)
+f_model_6_sc <- update(f_model_6, data=Training_NAs)
+
+# Accuracy table
+pred_train_6 <- ifelse(fitted.values(f_model_6_sc) > .5, "foster", "not foster")
+table(Training_NAs$child_foster, pred_train_6)
+
+# Accuracy table for testing data
+Testing_NAs[, 14] <- scale(Testing_NAs[, 14])
+
+f_accuracy_6 <- validate(Training_NAs, test_data = Testing_NAs, formulas = "child_foster ~ age_child + current_age_respondent + num_union_status + first_born + wealth_index + edu_level_mother + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+## 7 variables
+```{r}
+# Rescale for age_cohabitation
+Training_NAs[, 12] <- scale(Training_NAs[, 12])
+
+# 7 variables
+f_model_7 <- glmer(child_foster ~ age_child + current_age_respondent + num_union_status + first_born + wealth_index + edu_level_mother + traveled_12 + (1 | mother_id), data = Training_NA, family = binomial)
+f_model_7_sc <- update(f_model_7, data=Training_NAs)
+
+# Accuracy table
+pred_train_7 <- ifelse(fitted.values(f_model_7_sc) > .5, "foster", "not foster")
+table(Training_NAs$child_foster, pred_train_7)
+
+# Accuracy table for testing data
+Testing_NAs[, 12] <- scale(Testing_NAs[, 12])
+
+f_accuracy_7 <- validate(Training_NAs, test_data = Testing_NAs, formulas = "child_foster ~ age_child + current_age_respondent + num_union_status + first_born + wealth_index + edu_level_mother + age_cohabitation + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+# Visualization of the accuracy and AUC corresponding to the number of variables
+```{r}
+prob_visualization_forward <- data.frame(
+  num_variable_forward = c(0, 1, 2, 3, 4, 5, 6, 7),
+  aic = c(AIC(f_model_null), AIC(f_model_1), AIC(f_model_2), AIC(f_model_3), AIC(f_model_4), AIC(f_model_5), AIC(f_model_6), AIC(f_model_7)),
+  accuracy_test_forward = c(f_accuracy_null$AUC*100, f_accuracy_1$AUC*100, f_accuracy_2$AUC*100, f_accuracy_3$AUC*100, f_accuracy_4$AUC*100, f_accuracy_5$AUC*100, f_accuracy_6$Accuracy*100, f_accuracy_7$AUC*100),
+  accuracy_train_forward = c(92.97, 97.23, 97.27, 97.27, 97.25, 97.22, 97.23, 97.22)
+)
+
+ggplot(prob_visualization_forward, aes(x = num_variable_forward)) +
+  geom_line(aes(y = aic), color = "blue") +
+  geom_point(aes(y = accuracy_test_forward * 60), color = "green") +
+  geom_point(aes(y = accuracy_train_forward * 60), color = "orange") +
+  scale_y_continuous(name = "AIC Value", sec.axis = sec_axis(~./60, name = "Accuracy")) +
+  labs(x = "Number of Variables", y = "1") +
+  theme_classic() + theme(legend.position = "top") +
+  guides(color = guide_legend(title = "Groups"))
+```
+
+# Accuracy Tables for Backward Selection Models (training and testing data)
+```{r}
+## All variables
+b_model_full <- glmer(child_foster ~ age_child + first_born + sex_child + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + wealth_index + traveled_12 + partners_education + currently_working + literacy + current_age_respondent + type_dejure_residence + age_first_sex + worked_12 + (1 | mother_id), data = Training_NA, family = binomial)
+# Accuracy table for training data
+pred_train_full <- ifelse(fitted.values(b_model_full) > .5, "foster", "not foster")
+table(Training_NA$child_foster, pred_train_full)
+# Accuracy table for testing data
+b_accuracy_full <- validate(Training_NA, test_data = Testing_NA, formulas = "child_foster ~ age_child + first_born + sex_child + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + wealth_index + traveled_12 + partners_education + currently_working + literacy + current_age_respondent + type_dejure_residence + age_first_sex + worked_12 + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+```{r}
+## 18 variables
+b_model_18 <- glmer(child_foster ~ age_child + first_born + sex_child + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + wealth_index + traveled_12 + partners_education + currently_working + current_age_respondent + type_dejure_residence + age_first_sex + worked_12 + (1 | mother_id), data = Training_NA, family = binomial)
+# Accuracy table for training data
+pred_train_18 <- ifelse(fitted.values(b_model_18) > .5, "foster", "not foster")
+table(Training_NA$child_foster, pred_train_18)
+# Accuracy table for testing data
+b_accuracy_18 <- validate(Training_NA, test_data = Testing_NA, formulas = "child_foster ~ age_child + first_born + sex_child + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + wealth_index + traveled_12 + partners_education + currently_working + current_age_respondent + type_dejure_residence + age_first_sex + worked_12 + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+```{r}
+## 17 variables
+b_model_17 <- glmer(child_foster ~ age_child + first_born + sex_child + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + wealth_index + traveled_12 + partners_education + currently_working + current_age_respondent + type_dejure_residence + age_first_sex + (1 | mother_id), data = Training_NA, family = binomial)
+# Accuracy table for training data
+pred_train_17 <- ifelse(fitted.values(b_model_17) > .5, "foster", "not foster")
+table(Training_NA$child_foster, pred_train_17)
+# Accuracy table for testing data
+b_accuracy_17 <- validate(Training_NA, test_data = Testing_NA, formulas = "child_foster ~ age_child + first_born + sex_child + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + wealth_index + traveled_12 + partners_education + currently_working + current_age_respondent + type_dejure_residence + age_first_sex + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+```{r}
+## 16 variables
+b_model_16 <- glmer(child_foster ~ age_child + first_born + sex_child + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + traveled_12 + partners_education + currently_working + current_age_respondent + type_dejure_residence + age_first_sex + (1 | mother_id), data = Training_NA, family = binomial)
+# Accuracy table for training data
+pred_train_16 <- ifelse(fitted.values(b_model_16) > .5, "foster", "not foster")
+table(Training_NA$child_foster, pred_train_16)
+# Accuracy table for testing data
+b_accuracy_16 <- validate(Training_NA, test_data = Testing_NA, formulas = "child_foster ~ age_child + first_born + sex_child + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + traveled_12 + partners_education + currently_working + current_age_respondent + type_dejure_residence + age_first_sex + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+```{r}
+## 15 variables
+b_model_15 <- glmer(child_foster ~ age_child + first_born + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + traveled_12 + partners_education + currently_working + current_age_respondent + type_dejure_residence + age_first_sex + (1 | mother_id), data = Training_NA, family = binomial)
+# Accuracy table for training data
+pred_train_15 <- ifelse(fitted.values(b_model_15) > .5, "foster", "not foster")
+table(Training_NA$child_foster, pred_train_15)
+# Accuracy table for testing data
+b_accuracy_15 <- validate(Training_NA, test_data = Testing_NA, formulas = "child_foster ~ age_child + first_born + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + traveled_12 + partners_education + currently_working + current_age_respondent + type_dejure_residence + age_first_sex + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+```{r}
+## 14 variables
+b_model_14 <- glmer(child_foster ~ age_child + first_born + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + partners_education + currently_working + current_age_respondent + type_dejure_residence + age_first_sex + (1 | mother_id), data = Training_NA, family = binomial)
+# Accuracy table for training data
+pred_train_14 <- ifelse(fitted.values(b_model_14) > .5, "foster", "not foster")
+table(Training_NA$child_foster, pred_train_14)
+# Accuracy table for testing data
+b_accuracy_14 <- validate(Training_NA, test_data = Testing_NA, formulas = "child_foster ~ age_child + first_born + marital_status + union_status + num_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + partners_education + currently_working + current_age_respondent + type_dejure_residence + age_first_sex + (1 | mother_id)", family = "binomial", REML = FALSE, metrics = binomial_metrics(all = TRUE))
+```
+
+# Visualization of the accuracy and AIC corresponding to the number of variables
+```{r}
+prob_visualization_backward <- data.frame(
+  num_variable_backward = c(19, 18, 17, 16, 15, 14),
+  aic_backward = c(AIC(b_model_full), AIC(b_model_18), AIC(b_model_17), AIC(b_model_16), AIC(b_model_15), AIC(b_model_14)),
+  accuracy_test_backward = c(b_accuracy_full$AUC*100, b_accuracy_18$AUC*100, b_accuracy_17$AUC*100, b_accuracy_16$AUC*100, b_accuracy_15$AUC*100, b_accuracy_14$AUC*100),
+  accuracy_train_backward = c(96.19, 97.20, 97.20, 97.23, 97.19, 97.18)
+)
+
+ggplot(prob_visualization_backward, aes(x = num_variable_backward)) +
+  geom_line(aes(y = aic_backward), color = "blue") +
+  geom_point(aes(y = accuracy_test_backward * 60), color = "green") +
+  geom_point(aes(y = accuracy_train_backward * 60), color = "orange") +
+  scale_y_continuous(name = "AIC Value", sec.axis = sec_axis(~./60, name = "Accuracy")) +
+  labs(x = "Number of Variables", y = "1") +
+  theme_classic() + theme(legend.position = "top") +
+  guides(color = guide_legend(title = "Groups"))
+```

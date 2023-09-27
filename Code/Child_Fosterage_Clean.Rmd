@@ -1,0 +1,249 @@
+---
+title: "Cleaning File - Child Fosterage"
+author: "Maya, Brady, & Tommy"
+date: 'Spring 2023'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the required packages
+```{r message = FALSE, warning = FALSE}
+library(haven)
+library(tidyr)
+library(readr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(lattice)
+library(lme4)
+library(tidyverse)
+library(stringr)
+```
+
+# Load the raw data from DHS
+```{r}
+# Read in the data from the original .DTA datafile 
+data <- read_stata("~/DRIR61FL.DTA")
+# drop all observations that have not given birth
+data <- filter(data, v201 > 0) 
+```
+
+# Creating Functions to Clean Data
+```{r}
+#First, we will reshape the data so that there is a dataset with all the original information, but each observation (row) will be an individual child. We will use the variable b8 to do this <- which is the age of each child. We will then create a new dataset that only contains the caseid, child_id, and age of the child. We will add each additional variable to this dataset. 
+data_child_obs <- gather(data = data, key = child_id, value = age_child, b8_01,b8_02, b8_03, b8_04, b8_05, b8_06, b8_07, b8_08, b8_09, b8_10, b8_11, b8_12, b8_13, b8_14, b8_15, b8_16, b8_17, b8_18, b8_19, b8_20) # gather all b8 observations (current age of child) to make a dataset where each observation is a child not a mother
+data_child_obs$child_id <- str_sub(data_child_obs$child_id, 4, 5) # child_id is the corresponding number after b8 (this will remain the same for following variables, so to match them up we are doing this)
+clean_data = subset(data_child_obs, select = c("caseid", "child_id", "age_child")) # create a dataset with only caseid, child_id, and child age
+
+# Now, we need to make a first_born variable with the old version of the dataset before we filter by 16 and younger 
+clean_data$mother_id <- str_replace_all(clean_data$caseid, " ", "") # create a mother_id variable which is a number uniquely associated with each mother (based on initial survey id) so that the children with the same mother can be easily matched
+clean_data$age_child <- as.numeric(clean_data$age_child) # make child age numeric
+clean_data <- subset(clean_data, !is.na(age_child)) # remove observations where child age = na
+clean_data <- clean_data %>% 
+  group_by(mother_id) %>%
+  mutate (first_born = ifelse(age_child==max(age_child), 1, 0)) # create the first_born variable where first born==1 and not first born==0 - this function will look at all the children with the same mother and then the child with the maximum age from that mother will be labeled as the first born (1) and all other children from that mother will be labeled not first born (0)
+
+# These are child specific variables. A function is in the process of being developed, but these will be matched by the combination of child_id and caseid to create a unique identifier of the child. 
+# b4 <- sex of child
+temp <- gather(data = data, key = child_id, value = sex_child, b4_01,b4_02, b4_03, b4_04, b4_05, b4_06, b4_07, b4_08, b4_09, b4_10, b4_11, b4_12, b4_13, b4_14, b4_15, b4_16, b4_17, b4_18, b4_19, b4_20) # In the original dataset, each child is listed in a column, this line makes each observation of a child (for example, b4_01 is child 1, etc) is a row
+temp$child_id <-str_sub(temp$child_id, 4, 5) # this will clean up the variable to 01, 02, 03, etc - each child will now be listed as 1-20 instead of b4_01-b4_20 
+temp = subset(temp, select = c("caseid", "child_id", "sex_child")) # make a new temporary dataset that includes only caseid, child_id, and variable of interest 
+clean_data <- left_join(x = clean_data, y = temp, by = c("child_id", "caseid")) # join the temporary dataset into the cleaned dataset 
+
+# b9_01 <- who the child lives with
+temp <- gather(data = data, key = child_id, value = child_residence, b9_01, b9_02, b9_03, b9_04, b9_05, b9_06, b9_07, b9_08, b9_09, b9_10, b9_11, b9_12, b9_13, b9_14, b9_15, b9_16, b9_17, b9_18, b9_19, b9_20) # In the original dataset, each child is listed in a column, this line makes each observation of a child (for example, b9_01 is child 1, etc) is a row
+temp$child_id <-str_sub(temp$child_id, 4, 5) # this will clean up the variable to 01, 02, 03, etc - each child will now be listed as 1-20 instead of b9_01-b9_20 
+temp = subset(temp, select = c("caseid", "child_id", "child_residence")) # make a new temporary dataset that includes only caseid, child_id, and variable of interest 
+clean_data <- left_join(x = clean_data, y = temp, by = c("child_id", "caseid")) # join the temporary dataset into the cleaned dataset 
+
+# b5_01 <- child is alive
+temp <- gather(data = data, key = child_id, value = child_alive, b5_01, b5_02, b5_03, b5_04, b5_05, b5_06, b5_07, b5_08, b5_09, b5_10, b5_11, b5_12, b5_13, b5_14, b5_15, b5_16, b5_17, b5_18, b5_19, b5_20) # In the original dataset, each child is listed in a column, this line makes each observation of a child (for example, b5_01 is child 1, etc) is a row
+temp$child_id <-str_sub(temp$child_id, 4, 5) # this will clean up the variable to 01, 02, 03, etc - each child will now be listed as 1-20 instead of b5_01-b5_20 
+temp = subset(temp, select = c("caseid", "child_id", "child_alive")) # make a new temporary dataset that includes only caseid, child_id, and variable of interest 
+clean_data <- left_join(x = clean_data, y = temp, by = c("child_id", "caseid")) # join the temporary dataset into the cleaned dataset 
+
+#This is for variables specific to the mother In the original dataset, these observations will be listed in one column. Each caseid is unique to the mother, and child_id is unique to the child, so this will be a unique identifier. Thus, each child variable can be matched to the correct child from that mother. 
+clean_mother_variable <- function(old_dataset, clean_dataset, old_var, new_var) {
+  temp = subset(old_dataset, select = c("caseid", "child_id", old_var))
+  clean_dataset <- left_join(x = clean_dataset, y = temp, by = c("child_id", "caseid"))
+  num <- ncol(clean_dataset)
+  colnames(clean_dataset)[num] <- new_var
+  return(clean_dataset)
+}
+
+# education level of mother (v106)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v106", "edu_level_mother")
+# respondent age (v012)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v012", "current_age_respondent")
+# wealth index (v190)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v190", "wealth_index")
+# region (v024)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v024", "region")
+# type of residence (v025)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v025", "type_residence")
+# if the respondent has ever terminated a pregnancy (v228)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v228", "terminated_preg")
+# source of drinking water (v113)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v113", "source_drinking_water")
+# toilet facility (v116)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v116", "type_toilet")
+# electricity (v119)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v119", "electricity")
+# number of household members (v136)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v136", "members_household")
+# number of children under 5 (v137)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v137", "members_under5")
+# number of eligible women in home (v138)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v138", "members_eligible_women")
+# de jure type of residence (v140)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v140", "type_dejure_residence")
+# educational attainment (v149)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v149", "attainment_education")
+# relationship to household head (v150)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v150", "relationship_househead")
+# sex of household head (v151)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v151", "sex_househead")
+# age of household head (v152)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v152", "age_househead")
+# literacy (v155)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v155", "literacy")
+# facilities shared (v160)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v160", "facilities_shared")
+# sons at home (v202)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v202", "home_sons")
+# daughters at home (v203)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v203", "home_daughters")
+# sons elsewhere (v204)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v204", "not_home_sons")
+# daughters elsewhere (v205)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v205", "not_home_daughters")
+# sons who have died (v206)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v206", "dead_sons")
+# daughters who have died (v207)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v207", "dead_daughters")
+# births in last five years (v208)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v208", "births_last5")
+# if the respondent is currently pregnant (v213)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v213", "respondent_pregnant")
+# number of living children (v218)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v218", "number_living_children")
+# what the respondents current contraceptive method is (v312)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v312", "contraceptive")
+# if the respondent has used drugs (s1017a)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "s1017a", "drugs")
+# if the respondent has traveled in the last 12 months (s117)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "s117", "traveled_12")
+# if the respondent is currently attending school (s106b)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "s106b", "attending_school")
+# if the respondent was ever forced to perform unwanted sexual acts (d125)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "d125", "forced_sex_acts")
+# if the respondent has experienced emotional violence (d104)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "d104", "emotional_violence")
+# if the respondent owns a home alone or jointly
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v745a", "owner_house")
+# what the respondents type of earning is (v741)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v741", "type_earning")
+# if the respondent has been employed all year (v732)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v732", "employed_allyear")
+# the respondents partners age (v730)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v730", "partners_age")
+# the respondent's occupation (v716)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v716", "respondent_occupation")
+# if the respondent is currently working (v714)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v714", "currently_working")
+# ideal number of children (v613)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v613", "ideal_num_children")
+# ideal number of children (v605)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v605", "desire_children")
+# age at first sex (v531)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v531", "age_first_sex")
+# current marital status (v501)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v501", "marital_status")
+# smoker (v463a)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v463a", "smoker_respondent")
+# education (seduc)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "seduc", "education")
+# province (sprovin)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "sprovin", "province")
+# union_status (v502)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v502", "union_status")
+# num_union_status (v503)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v503", "num_union_status")
+# husband_residing (v504)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v504", "husband_residing")
+# age_cohabitation (v511)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v511", "age_cohabitation")
+# age_first_sex (v531)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v531", "first_sex")
+# stable (v535)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v535", "stable")
+# financial_decision_maker (v739)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v739", "financial_decision_maker")
+# travel_decision_maker (v743D)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v743d", "travel_decision_maker")
+#  partners_education (v701)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v701", " partners_education")
+#  num_trips (v167)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v167", " num_trips")
+#  length_away (v168)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v168", " length_away")
+# sexual partners in their lifetime (v836)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v836", "sex_partners_life")
+# sexual partners in the last 12 months (v766b)
+clean_data <- clean_mother_variable(data_child_obs, clean_data, "v766b", "sex_partners_12")
+```
+
+# Clean up child observations/new dataset 
+```{r}
+rm(temp) # remove temp dataset from global environment 
+
+clean_data <- filter(clean_data, age_child <= 16) # drop all observations that are under the age of 16
+clean_data$age_first_sex[clean_data$age_first_sex == 97]<- NA # drop inconsistent responses 
+clean_data$ideal_num_children[clean_data$ideal_num_children == 96]<- NA # drop non-numeric responses
+
+write_csv(clean_data, "~/Clean_Data_Fosterage.csv") # write the clean dataset into a file called Clean_Data_Fosterage
+
+clean_data <- read_csv("~/Clean_Data_Fosterage.csv") # load the clean data
+clean_data <- mutate(clean_data, child_foster = ifelse((clean_data$child_residence == 0| clean_data$child_residence == 1), 0, 1)) # Create a variable that represents if a child has been fostered or not. A child would be considered not fostered if they live with either parent, and considered fostered otherwise. This adds the variable child_foster as 0 == not fostered and 1 == fostered. 
+
+write_csv(clean_data, "~/Clean_Data_Fosterage.csv") # write the clean dataset into a file called Clean_Data_Fosterage
+```
+
+```{r, eval = FALSE}
+# This is a work in progress function for the child variable <- feel free to ignore for now. The variables necessary have been put in the clean csv file, so this is not necessary, it would just make it easier to add future variables.
+#This is for variables specific to the child. In the original dataset, these observations will be listed as variable_01, variable_02, etc... variable_20. Each number is unique to the child, so this will become the child ID. Thus, each child variable can be matched to the correct child from that mother. 
+clean_child_variable <- function(old_dataset, clean_dataset, new_variable, code) {
+  a <- gsub(" ", "", paste(code, "_01"))
+  b <- gsub(" ", "", paste(code, "_02"))
+  c <- gsub(" ", "", paste(code, "_03"))
+  d <- gsub(" ", "", paste(code, "_04"))
+  e <- gsub(" ", "", paste(code, "_05"))
+  f <- gsub(" ", "", paste(code, "_06"))
+  g <- gsub(" ", "", paste(code, "_07"))
+  h <- gsub(" ", "", paste(code, "_08"))
+  i <- gsub(" ", "", paste(code, "_09"))
+  j <- gsub(" ", "", paste(code, "_10"))
+  k <- gsub(" ", "", paste(code, "_11"))
+  l <- gsub(" ", "", paste(code, "_12"))
+  m <- gsub(" ", "", paste(code, "_13"))
+  n <- gsub(" ", "", paste(code, "_14"))
+  o <- gsub(" ", "", paste(code, "_15"))
+  p <- gsub(" ", "", paste(code, "_16"))
+  q <- gsub(" ", "", paste(code, "_17"))
+  r <- gsub(" ", "", paste(code, "_18"))
+  s <- gsub(" ", "", paste(code, "_19"))
+  t <- gsub(" ", "", paste(code, "_20"))
+  
+  temp <- gather(data = old_dataset, key = child_id, value = new_variable, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t)
+  temp$child_id <- str_sub(temp$child_id, 4, 5)
+  temp = subset(temp, select = c("caseid", "child_id", new_variable))
+  clean_dataset <- left_join(x = clean_dataset, y = temp, by = c("child_id", "caseid"))
+  return(clean_dataset)
+} 
+
+# sex of child (b4) 
+clean_data <- clean_child_variable(data_child_obs, clean_data, sex_child, "b4")
+```

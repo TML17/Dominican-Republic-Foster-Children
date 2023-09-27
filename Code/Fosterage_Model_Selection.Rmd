@@ -1,0 +1,300 @@
+---
+title: "Modeling Buildi Up - Child Fosterage"
+author: "Maya, Brady, & Tommy"
+date: 'Spring 2023'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the required packages
+```{r message = FALSE, warning = FALSE}
+library(haven)
+library(tidyr)
+library(readr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(lattice)
+library(lme4)
+library(tidyverse)
+library(stringr)
+library(lmerTest)
+library(cAIC4)
+library(MuMIn)
+library(parallel)
+library(glmmLasso)
+```
+
+# Load the raw data from DHS
+```{r}
+# Read in the data
+Training <- read_csv("Clean_Data_Training.csv")
+Training_NA <- na.omit(Training)
+
+Testing <- read_csv("Clean_Data_Testing.csv")
+Testing_NA <- na.omit(Testing)
+```
+
+# Forward Stepwise Model(Adding the 1st variable)
+```{r}
+col_name <- c("age_child", "first_born", "sex_child", "marital_status", "union_status", "non_union_status", "edu_level_mother", "num_trips", "owner_house", "wealth_index", "traveled_12", "partners_education", "currently_working", "literacy", "current_age_respondent", "type_dejure_residence", "age_first_sex", "worked_12")
+
+cores <- detectCores()
+cl <- makeCluster(cores)
+
+# Export necessary variables to the worker processes
+
+clusterExport(cl, c("col_name"))
+clusterExport(cl, c("Training_NA"))
+clusterEvalQ(cl, library(lme4))
+clusterEvalQ(cl, c(library(MuMIn)))
+
+# Define a function to fit the model and return AIC
+fit_model <- function(x) {
+  formula <- formula(paste0("child_foster ~ 1 + ", x, " + (1 | mother_id)"))
+  model <- glmer(formula, data = Training_NA, family = binomial)
+  AIC(model)
+}
+
+# Use parLapply to fit models for each predictor in parallel
+aic_values <- unlist(parLapply(cl, col_name, fit_model))
+
+# Stop the cluster
+stopCluster(cl)
+
+# Output the results
+aic_values
+```
+
+# Forward Stepwise Model(Adding the 2nd variable)
+```{r}
+col_name <- c("first_born", "sex_child", "marital_status", "union_status", "non_union_status", "edu_level_mother", "num_trips", "owner_house", "wealth_index", "traveled_12", "partners_education", "currently_working", "literacy", "current_age_respondent", "type_dejure_residence", "age_first_sex", "worked_12")
+
+cores <- detectCores()
+cl <- makeCluster(cores)
+
+# Export necessary variables to the worker processes
+
+clusterExport(cl, c("col_name"))
+clusterExport(cl, c("Training_NA"))
+clusterEvalQ(cl, library(lme4))
+clusterEvalQ(cl, c(library(MuMIn)))
+
+# Define a function to fit the model and return AIC
+fit_model <- function(x) {
+  formula <- formula(paste0("child_foster ~ 1 + age_child + ", x, " + (1 | mother_id)"))
+  model <- glmer(formula, data = Training_NA, family = binomial)
+  AIC(model)
+}
+
+# Use parLapply to fit models for each predictor in parallel
+aic_values <- unlist(parLapply(cl, col_name, fit_model))
+
+# Stop the cluster
+stopCluster(cl)
+
+# Output the results
+aic_values
+```
+
+# Forward Stepwise Model(Adding the 3rd variable)
+```{r}
+col_name <- c("first_born", "sex_child", "marital_status", "union_status", "non_union_status", "edu_level_mother", "num_trips", "owner_house", "wealth_index", "traveled_12", "partners_education", "currently_working", "literacy", "type_dejure_residence", "age_first_sex", "worked_12")
+
+cores <- detectCores()
+cl <- makeCluster(cores)
+
+# Export necessary variables to the worker processes
+
+clusterExport(cl, c("col_name"))
+clusterExport(cl, c("Training_NA"))
+clusterEvalQ(cl, library(lme4))
+clusterEvalQ(cl, c(library(MuMIn)))
+
+# Define a function to fit the model and return AIC
+fit_model <- function(x) {
+  formula <- formula(paste0("child_foster ~ 1 + age_child + current_age_respondent + ", x, " + (1 | mother_id)"))
+  model <- glmer(formula, data = Training_NA, family = binomial)
+  AIC(model)
+}
+
+# Use parLapply to fit models for each predictor in parallel
+aic_values <- unlist(parLapply(cl, col_name, fit_model))
+
+# Stop the cluster
+stopCluster(cl)
+
+# Output the results
+aic_values
+```
+
+# Forward Stepwise Model(Adding the 4th variable)
+```{r}
+col_name <- c("first_born", "sex_child", "marital_status", "union_status", "edu_level_mother", "num_trips", "owner_house", "wealth_index", "traveled_12", "partners_education", "currently_working", "literacy", "type_dejure_residence", "age_first_sex", "worked_12")
+
+cores <- detectCores()
+cl <- makeCluster(cores)
+
+# Export necessary variables to the worker processes
+
+clusterExport(cl, c("col_name"))
+clusterExport(cl, c("Training_NA"))
+clusterEvalQ(cl, library(lme4))
+clusterEvalQ(cl, c(library(MuMIn)))
+
+# Define a function to fit the model and return AIC
+fit_model <- function(x) {
+  formula <- formula(paste0("child_foster ~ 1 + age_child + current_age_respondent + non_union_status + ", x, " + (1 | mother_id)"))
+  model <- glmer(formula, data = Training_NA, family = binomial)
+  AIC(model)
+}
+
+# Use parLapply to fit models for each predictor in parallel
+aic_values <- unlist(parLapply(cl, col_name, fit_model))
+
+# Stop the cluster
+stopCluster(cl)
+
+# Output the results
+aic_values
+```
+
+# Forward Stepwise Model(Adding the 5th variable)
+```{r}
+col_name <- c("sex_child", "marital_status", "union_status", "edu_level_mother", "num_trips", "owner_house", "wealth_index", "traveled_12", "partners_education", "currently_working", "literacy", "type_dejure_residence", "age_first_sex", "worked_12")
+
+cores <- detectCores()
+cl <- makeCluster(cores)
+
+# Export necessary variables to the worker processes
+
+clusterExport(cl, c("col_name"))
+clusterExport(cl, c("Training_NA"))
+clusterEvalQ(cl, library(lme4))
+clusterEvalQ(cl, c(library(MuMIn)))
+
+# Define a function to fit the model and return AIC
+fit_model <- function(x) {
+  formula <- formula(paste0("child_foster ~ 1 + age_child + current_age_respondent + non_union_status + first_born + ", x, " + (1 | mother_id)"))
+  model <- glmer(formula, data = Training_NA, family = binomial)
+  AIC(model)
+}
+
+# Use parLapply to fit models for each predictor in parallel
+aic_values <- unlist(parLapply(cl, col_name, fit_model))
+
+# Stop the cluster
+stopCluster(cl)
+
+# Output the results
+aic_values
+```
+
+# Forward Stepwise Model(Adding the 6th variable)
+```{r}
+col_name <- c("sex_child", "marital_status", "union_status", "edu_level_mother", "num_trips", "owner_house", "traveled_12", "partners_education", "currently_working", "literacy", "type_dejure_residence", "age_first_sex", "worked_12")
+
+cores <- detectCores()
+cl <- makeCluster(cores)
+
+# Export necessary variables to the worker processes
+
+clusterExport(cl, c("col_name"))
+clusterExport(cl, c("Training_NA"))
+clusterEvalQ(cl, library(lme4))
+clusterEvalQ(cl, c(library(MuMIn)))
+
+# Define a function to fit the model and return AIC
+fit_model <- function(x) {
+  formula <- formula(paste0("child_foster ~ 1 + age_child + current_age_respondent + non_union_status + first_born + wealth_index + ", x, " + (1 | mother_id)"))
+  model <- glmer(formula, data = Training_NA, family = binomial)
+  AIC(model)
+}
+
+# Use parLapply to fit models for each predictor in parallel
+aic_values <- unlist(parLapply(cl, col_name, fit_model))
+
+# Stop the cluster
+stopCluster(cl)
+
+# Output the results
+aic_values
+```
+
+# Forward Stepwise Model(Adding the 7th variable)
+```{r}
+col_name <- c("sex_child", "marital_status", "union_status", "num_trips", "owner_house", "traveled_12", "partners_education", "currently_working", "literacy", "type_dejure_residence", "age_first_sex", "worked_12")
+
+cores <- detectCores()
+cl <- makeCluster(cores)
+
+# Export necessary variables to the worker processes
+
+clusterExport(cl, c("col_name"))
+clusterExport(cl, c("Training_NA"))
+clusterEvalQ(cl, library(lme4))
+clusterEvalQ(cl, c(library(MuMIn)))
+
+# Define a function to fit the model and return AIC
+fit_model <- function(x) {
+  formula <- formula(paste0("child_foster ~ 1 + age_child + current_age_respondent + non_union_status + first_born + wealth_index + edu_level_mother + ", x, " + (1 | mother_id)"))
+  model <- glmer(formula, data = Training_NA, family = binomial)
+  AIC(model)
+}
+
+# Use parLapply to fit models for each predictor in parallel
+aic_values <- unlist(parLapply(cl, col_name, fit_model))
+
+# Stop the cluster
+stopCluster(cl)
+
+# Output the results
+aic_values
+```
+
+# Forward Stepwise Model(Adding the 8th variable)
+```{r}
+col_name <- c("sex_child", "marital_status", "union_status", "num_trips", "owner_house", "partners_education", "currently_working", "literacy", "type_dejure_residence", "age_first_sex", "worked_12")
+
+cores <- detectCores()
+cl <- makeCluster(cores)
+
+# Export necessary variables to the worker processes
+
+clusterExport(cl, c("col_name"))
+clusterExport(cl, c("Training_NA"))
+clusterEvalQ(cl, library(lme4))
+clusterEvalQ(cl, c(library(MuMIn)))
+
+# Define a function to fit the model and return AIC
+fit_model <- function(x) {
+  formula <- formula(paste0("child_foster ~ 1 + age_child + current_age_respondent + non_union_status + first_born + wealth_index + edu_level_mother + traveled_12 + ", x, " + (1 | mother_id)"))
+  model <- glmer(formula, data = Training_NA, family = binomial)
+  AIC(model)
+}
+
+# Use parLapply to fit models for each predictor in parallel
+aic_values <- unlist(parLapply(cl, col_name, fit_model))
+
+# Stop the cluster
+stopCluster(cl)
+
+# Output the results
+aic_values
+```
+
+# Get the initial forward model
+```{r}
+initial_forward_model <- glmer(child_foster ~ age_child + first_born + sex_child + marital_status + union_status + non_union_status + age_cohabitation + edu_level_mother + num_trips + owner_house + wealth_index + traveled_12 + partners_education + currently_working + literacy + current_age_respondent + type_dejure_residence + age_first_sex + worked_12 + (1 | mother_id), data = Training_NA, family = binomial)
+```
+
+# Get the final forward model
+```{r}
+final_forward_model <- glmer(child_foster ~ age_child + first_born + non_union_status + wealth_index + edu_level_mother + current_age_respondent + (1 | mother_id), data = Training_NA, family = binomial)
+```
+
+
+

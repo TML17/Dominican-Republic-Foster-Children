@@ -1,0 +1,203 @@
+---
+title: "Model Visualizations - Child Fosterage"
+author: "Maya, Brady, & Tommy"
+date: 'Spring 2023'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load the required packages
+```{r message = FALSE, warning = FALSE}
+library(haven)
+library(tidyr)
+library(readr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(lattice)
+library(lme4)
+library(tidyverse)
+library(stringr)
+library(lmerTest)
+library(cAIC4)
+library(MuMIn)
+library(parallel)
+library(glmmLasso)
+library(cvms)
+library(emmeans)
+library(numDeriv)
+library(RCurl)
+library(reshape2)
+library(plyr)
+library(RColorBrewer)
+library(emmeans)
+library(influence.ME)
+```
+
+# Load the cleaned data
+```{r, warning = FALSE}
+# Read in the data
+Training <- read_csv("Clean_Data_Training.csv")
+Training_NA <- na.omit(Training)
+
+Testing <- read_csv("Clean_Data_Testing.csv")
+Testing_NA <- na.omit(Testing)
+
+Training_NAs <- Training_NA
+Testing_NAs <- Testing_NA
+
+```
+
+# Load the raw data from DHS
+```{r, warning = FALSE}
+# create the final forward selection model with 6 variables
+final_model <- glmer(child_foster ~ age_child + current_age_respondent + num_union_status + first_born + wealth_index + edu_level_mother + (1 | mother_id), data = Training_NA, family = binomial)
+```
+
+# Listing all categorical combinations
+```{r}
+first_born_categories <- unique(Training_NA$first_born)
+num_union_status_categories <- unique(Training_NA$num_union_status)
+wealth_index_categories <- unique(Training_NA$wealth_index)
+education_categories <- unique(Training_NA$edu_level_mother)
+
+categorical_grid <- expand.grid(first_born = first_born_categories,
+                                num_union_status = num_union_status_categories,
+                                wealth_index = wealth_index_categories, 
+                                education_level = education_categories,
+                                number_of_instances = 0)
+print(categorical_grid)
+
+in_data_count <- rep(0, nrow(categorical_grid))
+for(x in 1:nrow(categorical_grid)){
+  in_data_count[x] <- sum(Training_NA$first_born == categorical_grid[x,1] & 
+                          Training_NA$num_union_status == categorical_grid[x,2] &
+                          Training_NA$wealth_index == categorical_grid[x,3] &
+                          Training_NA$edu_level_mother == categorical_grid[x,4], 
+                          na.rm = TRUE)
+  categorical_grid[x, 5] = in_data_count[x]
+}
+```
+
+
+## Counting frequency of cases within each factor level combination
+```{r}
+in_data_count <- rep(0, nrow(categorical_grid))
+for (x in 1:nrow(categorical_grid)){
+  in_data_count[x] <- sum(Training_NA$first_born == categorical_grid[x, 1] & Training_NA$num_union_status == categorical_grid[x, 2] & Training_NA$wealth_index == categorical_grid[x, 3] & Training_NA$edu_level_mother == categorical_grid[x, 4], na.rm = TRUE)
+}
+print(categorical_grid)
+```
+
+# Visualization for the odds ratio
+```{r}
+# Estimates of fixed effects, 95% confidence intervals, odds ratios, and odds ratio confidence intervals 
+fixed_effects <- fixef(final_model)
+se_effects <- se.fixef(final_model)
+LB_est <- fixed_effects-(se_effects*1.96)
+UB_est <- fixed_effects+(se_effects*1.96)
+odds_ratio_effects <- exp(fixed_effects)
+LB_odds <- odds_ratio_effects-(se_effects*1.96)
+UB_odds <- odds_ratio_effects+(se_effects*1.96)
+
+# Create a table with these estimates
+est_table <- data.frame(
+  fixed_effects = fixed_effects,
+  LB_est = LB_est,
+  UB_est = UB_est,
+  odds_ratio_effects = odds_ratio_effects,
+  LB_odds = LB_odds,
+  UB_odds = UB_odds
+)
+est_table <- est_table[2:7, ]
+
+variable_name <- c("age_child", "current_age_respondent", "num_union_status", "first_born", "wealth_index", "edu_level_mother")
+fixed_effects_visualization <- ggplot(est_table, aes(y = variable_name, x = fixed_effects, xmin = LB_est, xmax = UB_est)) + geom_pointrange() + ylab("Selected Variables") + xlab("Fixed Effects")
+odds_visualization <- ggplot(est_table, aes(y = variable_name, x = odds_ratio_effects, xmin = LB_odds, xmax = UB_odds)) + geom_pointrange() + ylab("selected Variables") + xlab("Odds Ratio")
+```
+
+# Analysis of Variance Table
+```{r}
+# Determining significance of each variable in the final model 
+# Removing age_child
+model_ac <- glmer(child_foster ~  current_age_respondent + num_union_status + first_born + wealth_index + edu_level_mother + (1 | mother_id), data = Training_NA, family = binomial)
+anova(model_ac, final_model)
+# Removing current_age_respondent
+model_car <- glmer(child_foster ~   age_child + num_union_status + first_born + wealth_index + edu_level_mother + (1 | mother_id), data = Training_NA, family = binomial)
+anova(model_car, final_model)
+# Removing num_union_status
+model_nus <- glmer(child_foster ~  current_age_respondent + age_child + first_born + wealth_index + edu_level_mother + (1 | mother_id), data = Training_NA, family = binomial)
+anova(model_nus, final_model)
+# Removing first_born
+model_fb <- glmer(child_foster ~  current_age_respondent + num_union_status + age_child + wealth_index + edu_level_mother + (1 | mother_id), data = Training_NA, family = binomial)
+anova(model_fb, final_model)
+# Removing wealth_index
+model_wi <- glmer(child_foster ~  current_age_respondent + num_union_status + first_born + age_child + edu_level_mother + (1 | mother_id), data = Training_NA, family = binomial)
+anova(model_wi, final_model)
+# Removing edu_level_mother
+model_elm <- glmer(child_foster ~  current_age_respondent + num_union_status + first_born + wealth_index + age_child + (1 | mother_id), data = Training_NA, family = binomial)
+anova(model_elm, final_model)
+```
+
+## Ignore the following codes, not part of final deliverable
+## Below is Psuedo-code, it does not model the current model and is included in the code as a work in progress for potential future use, for creating predicted probability and confidence intervals for each factor-level combination 
+
+# Making numeric variables categorical
+```{r, eval=FALSE}
+hist(Training_NA$age_child)
+mean(Training_NA$age_child)
+Training_NA$cat_age_child <- ifelse(Training_NA$age_child <= 7.9, "young", "old")
+
+hist(Training_NA$current_age_respondent)
+mean(Training_NA$current_age_respondent)
+Training_NA$cat_age_resp <- ifelse(Training_NA$current_age_respondent <= 32.3, "young", "old")
+```
+
+## CALCULATING THE PREDICTED PROBABILITY AND CONFIDENCE INTERVALS FOR EACH FACTOR-LEVEL COMBINATION
+```{r, eval=FALSE}
+f_model_6 <- glmer(child_foster ~ age_child + current_age_respondent + num_union_status + first_born + wealth_index + edu_level_mother + (1 | mother_id), data = Training_NA, family = binomial)
+
+# Calculating estimated marginal means
+em = emmeans(f_model_6, ~ age_child + current_age_respondent + num_union_status + first_born + wealth_index + edu_level_mother)
+
+# Extracting predicted values
+emdf = summary(em, by = c("num_union_status", "first_born", "wealth_index", "education_level_mother"), type = "response")
+```
+
+## ASSEMBLING TABLE WITH (1) FACTOR-LEVEL COMBINATIONS, (2) PROBABILITIES AND CONFIDENCE INTERVALS, AND (3) FREQUENCY OF CASES   
+```{r, eval=FALSE}
+# Adding probability to factor-level combination grid
+categorical_grid$predicted_prob <- emdf$prob
+
+# Adding lower and upper confidence interval values to factor-level combination grid
+categorical_grid$LCL <- emdf$asymp.LCL
+categorical_grid$UCL <- emdf$asymp.UCL
+
+# Adding frequency of cases to factor-level combination grid
+categorical_grid$count_in_dataset <- in_data_count
+
+# Sort categorical_grid by descending order of frequency of cases
+categorical_grid <- categorical_grid[order(-categorical_grid$count_in_dataset), ]
+
+# Printing categorical_grid
+categorical_grid 
+```
+
+# CREATING PROBABILITY AND CONFIDENCE INTERVAL VISUALIZATIONS
+```{r, eval=FALSE}
+# Loading ggplot package 
+library(ggplot2)
+
+# Using the categorical_grid data frame to create a bar plot of probability with confidence intervals (arranged by descending order of probability)
+ggplot(categorical_grid, aes(x = reorder(paste0("FirstBorn: ", first_born, "\nUnionStatus: ", num_union_status, "\nWealth: ", wealth_index, "\nEducationStatus:", edu_level_mother), -predicted_prob), y = predicted_prob)) +
+  geom_bar(stat = "identity", fill = "#4C78A8", position = position_dodge(width = 1)) +
+  geom_errorbar(aes(ymin = LCL, ymax = UCL), width = 0.2, position = position_dodge(width = 1)) +
+  xlab("") +
+  ylab("Predicted Probability") +
+  ggtitle("Predicted Probability by Variable Combination including UCL and LCL as error bars") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+

@@ -19,10 +19,10 @@ This project aims to analyze and model data related to child fosterage in the Do
 - **Clean_Data_Testing.csv:** Testing dataset containing 20% of the cleaned data.
 
 ### Visualizations
-![Fixed Effects Visualization](/Code/fixed_effects_vis.png)  
+![Fixed Effects Visualization](/fixed_effects_vis.png)  
 *Fixed effects of each variable with 95% confidence intervals.*
 
-![Odds Ratios Visualization](/Code/odds_vis.png)  
+![Odds Ratios Visualization](/odds_vis.png)  
 *Odds ratios of each variable with 95% confidence intervals.*
 
 ## Methodology
